@@ -1,9 +1,29 @@
 import requests
 from bs4 import BeautifulSoup
-from bs4.element import NavigableString
 from datetime import datetime
 import re
 import pandas as pd
+
+publishers = {
+    "인사이트": "10799",
+    "에이콘": "7509",
+    "한빛미디어": "6555",
+    "위키북스": "20415",
+    "제이펍": "33202",
+    "길벗": "663",
+    "책만": "286290",
+    "지&선": "22111",
+    "디지털북스": "7635",
+    "미래의창": "8609",
+    "비제이퍼블릭": "39721",
+    "이레미디어": "13913",
+    "정보문화사": "4755",
+    "책읽는수요일": "58631",
+    "프로텍미디어": "173386",
+    "이지스퍼블리싱": "48022",
+    "영진닷컴": "3853",
+    "프리렉": "8202",
+}
 
 class Book:
     def __init__(self, title, release, authors, publishers, url):
@@ -11,13 +31,14 @@ class Book:
         self.contents["created"] = datetime.now().strftime("%Y-%m-%d %H:%M")
         self.url = url
 
-def read_book_template_file(file_path):
+def read_template_md_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         book_template = file.readlines()
     return book_template
 
-def write_book_file(book_template, book, file_path):
-    for i, line in enumerate(book_template):
+def write_book_to_md_file(template_md_file_path, book, md_file_path):
+    template = read_template_md_file(template_md_file_path)
+    for i, line in enumerate(template):
         for k, v in book.contents.items():
             if line.startswith(f"{k}:"):
                 if isinstance(v, list):
@@ -25,42 +46,16 @@ def write_book_file(book_template, book, file_path):
                     for item in v:
                         content_string += "\n"
                         content_string += f"  - {item}"
-                    book_template[i] = f"{k}: {content_string}\n"
+                    template[i] = f"{k}: {content_string}\n"
                 else:
                     content_string = v
-                    book_template[i] = f"{k}: {content_string}\n"
+                    template[i] = f"{k}: {content_string}\n"
         if line.startswith("# references"):
-            book_template[i] = "# references\n" + "- " + book.url
-    with open(file_path, 'w', encoding='utf-8') as file:
-        file.writelines(book_template)
+            template[i] = "# references\n" + "- " + book.url
+    with open(md_file_path, 'w', encoding='utf-8') as file:
+        file.writelines(template)
 
-def main():
-    # book_template = read_book_template_file("book.md")
-    # book = Book("처음 배우는 암호화(Serious Cryptography)", "2018", ["세바스찬 라시카", "바히드 미자리리"], ["길벗"], "https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=267869464")
-    # write_book_file(book_template, book, "test.md")
-
-    publishers = {
-        "길벗": "663",
-        "디지털북스": "7635",
-        "미래의창": "8609",
-        "비제이퍼블릭": "39721",
-        # "스노우북": "",
-        "에이콘": "7509",
-        "위키북스": "20415",
-        "이레미디어": "13913",
-        "인사이트": "10799",
-        "정보문화사": "4755",
-        "제이펍": "33202",
-        "지&선": "22111",
-        "책만": "286290",
-        "책읽는수요일": "58631",
-        "프로텍미디어": "173386",
-        "한빛미디어": "6555",
-        "이지스퍼블리싱": "48022",
-        "영진닷컴": "3853",
-        "프리렉": "8202",
-    }
-
+def find_book(publishers, last_YYMM):
     data = {
         "title": [],
         "release": [],
@@ -85,14 +80,24 @@ def main():
                     authors = li.text.split("(지은이)")[0]
                     authors = authors.split(",")
                     authors = [author.strip() for author in authors]
-                    release = re.search(r'(\d{4})년', li.text).group(1)
-            data["title"].append(title)
-            data["release"].append(release)
-            data["publisher"].append(k)
-            data["url"].append(url)
-            print(authors)
-            print("----------------------------")
+                    release = re.search(r'(\d{4})년 (\d{1,2})월', li.text)
+                    YY = f"{release.group(1)}"
+                    MM = f"{release.group(2).zfill(2)}"
+                    if int(YY+MM) >= last_YYMM:
+                        release = f"{YY}.{MM}"
+                        data["title"].append(title)
+                        data["release"].append(release)
+                        data["publisher"].append(k)
+                        data["url"].append(url)
+                        print(f"{k}: {title} {release}")
 
     df = pd.DataFrame(data)
     df.to_excel('test.xlsx', index=False, engine='openpyxl')
+
+def main():
+    find_book(publishers, 202308)
+    # book_template = read_book_template_file("book.md")
+    # book = Book("처음 배우는 암호화(Serious Cryptography)", "2018", ["세바스찬 라시카", "바히드 미자리리"], ["길벗"], "https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=267869464")
+    # write_book_file(book_template, book, "test.md")
+
 main()
