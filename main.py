@@ -3,27 +3,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import re
 import pandas as pd
-
-publishers = {
-    "인사이트": "10799",
-    "에이콘": "7509",
-    "한빛미디어": "6555",
-    "위키북스": "20415",
-    "제이펍": "33202",
-    "길벗": "663",
-    "책만": "286290",
-    "지&선": "22111",
-    "디지털북스": "7635",
-    "미래의창": "8609",
-    "비제이퍼블릭": "39721",
-    "이레미디어": "13913",
-    "정보문화사": "4755",
-    "책읽는수요일": "58631",
-    "프로텍미디어": "173386",
-    "이지스퍼블리싱": "48022",
-    "영진닷컴": "3853",
-    "프리렉": "8202",
-}
+import publishers
 
 class Book:
     def __init__(self, title, release, authors, publishers, url):
@@ -95,7 +75,7 @@ def find_book(publishers, last_YYMM):
     df.to_excel('test.xlsx', index=False, engine='openpyxl')
 
 def main():
-    find_book(publishers, 202308)
+    find_book(publishers.publishers, 202308)
     # book_template = read_book_template_file("book.md")
     # book = Book("처음 배우는 암호화(Serious Cryptography)", "2018", ["세바스찬 라시카", "바히드 미자리리"], ["길벗"], "https://www.aladin.co.kr/shop/wproduct.aspx?ItemId=267869464")
     # write_book_file(book_template, book, "test.md")
