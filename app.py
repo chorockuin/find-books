@@ -1,54 +1,49 @@
 import streamlit as st
 import pandas as pd
+import os
+import finder
+import datetime
+import mybook
 
-# CSV 파일 로드
-def load_data():
-    return pd.read_csv("your_file.csv")
-
-# 선택된 아이템을 CSV로 저장
-def save_selected_items(selected_items):
-    selected_items.to_csv("selected_items.csv", index=False)
-
-# 메인 함수
 def main():
-    st.title("CSV 파일 데이터 뷰어 & 선택기")
-
-    df = load_data()
-
-    # 페이지네이션을 위한 세션 상태 설정
+    st.set_page_config(layout="wide")
+    st.title('다 찾아주마')
+    
     if 'page' not in st.session_state:
         st.session_state.page = 0
 
-    # 페이지당 표시할 아이템 수
-    items_per_page = 50
-    start = st.session_state.page * items_per_page
-    end = (st.session_state.page + 1) * items_per_page
-    displayed_data = df[start:end]
+    current_year = datetime.datetime.now().year
+    current_month = datetime.datetime.now().month
+    
+    year = st.selectbox('', range(2023, current_year+1), index=current_year-2023)
+    month = st.selectbox('', range(1, 13), index=current_month-1)
+    year = str(year)
+    month = str(month).zfill(2)
+    st.write(f"{year}년 {month}월 이후에 나온 책들을 다 찾아주마")
+    
+    books_file_path = 'books.csv'
+    if st.button("다 찾아주마"):
+        if os.path.exists(books_file_path):
+            books = mybook.read_books_from_csv_file(books_file_path)
+        else:
+            books = finder.find_books(year + month)
+            mybook.write_books_to_csv_file(books, books_file_path)
+        st.session_state.books = books
+        st.session_state.page = 0
 
-    # 체크박스로 선택된 아이템을 저장할 리스트
-    selected_indices = []
-
-    # 데이터와 체크박스 표시
-    for index, row in displayed_data.iterrows():
-        if st.checkbox(f"{row['your_column_name']}", key=index):
-            selected_indices.append(index)
-
-    # 선택된 아이템을 DataFrame으로 변환
-    if selected_indices:
-        selected_items = df.loc[selected_indices]
-
-        # 선택된 아이템을 CSV로 저장하는 버튼
-        if st.button("선택된 아이템을 CSV로 저장"):
-            save_selected_items(selected_items)
-            st.success("선택된 아이템이 CSV 파일로 저장되었습니다.")
-
-    # 페이지네이션 버튼
-    if st.button("이전"):
-        if st.session_state.page > 0:
-            st.session_state.page -= 1
-    if st.button("다음"):
-        if end < len(df):
-            st.session_state.page += 1
-
+    if 'books' in st.session_state:
+        books_df = pd.DataFrame([{
+            'select': False,
+            'number': str(i + 1),
+            'title': book.contents['title'],
+            'release': book.contents['release'],
+            'publishers': ', '.join(book.contents['publishers']),
+            'url': book.url,
+            'authors': ', '.join(book.contents['authors']),
+        } for i, book in enumerate(st.session_state.books)])
+        st.data_editor(books_df, hide_index=True, column_config={'select': st.column_config.CheckboxColumn(required=True), 'url': st.column_config.LinkColumn()})
+        if st.button("다 바꿔주마"):
+            pass
+            
 if __name__ == "__main__":
     main()
