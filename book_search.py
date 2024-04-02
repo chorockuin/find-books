@@ -1,4 +1,4 @@
-import mybook
+import book
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -27,7 +27,7 @@ publishers = {
     "커뮤니케이션북스": "5433",
 }
 
-def find_books(lastest_release_year_month: str):
+def search_books(since_year_month: str):
     books = []
     for pub_name, pub_id in publishers.items():
         pub_url = 'https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&KeyRecentPublish=0&PublisherSearch=%40' + pub_id + '&OutStock=0&ViewType=Detail&SortOrder=5&CustReviewCount=0&CustReviewRank=0&KeyWord=&CategorySearch=&chkKeyTitle=&chkKeyAuthor=&chkKeyPublisher=&chkKeyISBN=&chkKeyTag=&chkKeyTOC=&chkKeySubject=&ViewRowCount=50&SuggestKeyWord=&page=1'
@@ -35,7 +35,6 @@ def find_books(lastest_release_year_month: str):
         soup = BeautifulSoup(response.text, 'html.parser')
         for book_box_element in soup.find('div', id='Search3_Result').find_all('div', class_='ss_book_box'):
             book_element = book_box_element.find('div', class_='ss_book_list')
-
             title_element = book_element.find('a', class_='bo3')
 
             title = title_element.text
@@ -48,7 +47,7 @@ def find_books(lastest_release_year_month: str):
                     release = re.search(r'(\d{4})년 (\d{1,2})월', li.text)
                     year = f'{release.group(1)}'
                     month = f'{release.group(2).zfill(2)}'
-                    if year + month >= lastest_release_year_month:
+                    if year + month >= since_year_month:
                         release = f'{year}.{month}'
-                        books.append(mybook.Book(title, release, authors, [pub_name], url))
+                        books.append(book.Book(title, release, authors, [pub_name], url))
     return books
