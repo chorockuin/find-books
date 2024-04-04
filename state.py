@@ -9,9 +9,10 @@ class State(ABC):
         self._ctx = ctx
 
     def transition(self, state: State) -> None:
-        self._ctx.state.finalize()
+        temp_state = self._ctx.state
         state.initialize()
         self._ctx.state = state
+        temp_state.finalize()
 
     @abstractmethod
     def initialize(self):

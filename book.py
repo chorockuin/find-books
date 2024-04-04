@@ -23,6 +23,9 @@ def sort_books(books: typing.List[Book]):
 def merge_books(books_a: typing.List[Book], books_b: typing.List[Book]):
     return sort_books({book.contents['title']: book for book in (books_a + books_b)}.values())
 
+def remove_books(books_a: typing.List[Book], titles_to_be_removed: str):
+    return sort_books([book for book in books_a if book.contents['title'] not in titles_to_be_removed])
+
 def create_books_df(books):
     return pandas.DataFrame([{
             'select': False,

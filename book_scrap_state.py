@@ -27,7 +27,7 @@ class BookScrapState(state.State):
             year, month = book.get_latest_book_release(old_books).split('.')
 
             st.write(f"{year}년 {month}월 까지 긁었어")
-            st.data_editor(book.create_books_df(old_books), hide_index=True, column_config={'select': st.column_config.CheckboxColumn(required=True), 'url': st.column_config.LinkColumn()})
+            edited_books_df = st.data_editor(book.create_books_df(old_books), hide_index=True, column_config={'select': st.column_config.CheckboxColumn(required=True), 'url': st.column_config.LinkColumn()})
         else:
             now_year = datetime.datetime.now().year
             now_month = datetime.datetime.now().month
@@ -44,3 +44,9 @@ class BookScrapState(state.State):
             
             books = book.merge_books(old_books, new_books)
             book.write_books_to_csv_file(books, books_file_path)
+
+        if st.button(f"선택한 책들은 다삭제"):
+            books_to_be_removed_df = edited_books_df[edited_books_df['select']]
+            books = book.remove_books(old_books, books_to_be_removed_df['title'].to_list())
+            book.write_books_to_csv_file(books, books_file_path)
+            st.experimental_rerun()
