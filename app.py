@@ -1,12 +1,12 @@
 import streamlit as st
 import state
-import book_scrap_state
+import publication_scrap_state
 
 class App:
     def __init__(self) -> None:
         self._ctx = state.SessionContext()
         if self._ctx.state is None:
-            self.initialize(book_scrap_state.BookScrapState(self._ctx))
+            self.initialize(publication_scrap_state.PublicationScrapState(self._ctx))
 
     def initialize(self, state: state) -> None:
         state.initialize()

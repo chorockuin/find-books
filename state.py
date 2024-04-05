@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from typing import Any
 import streamlit as st
 
 import colors_names_db
@@ -15,15 +16,15 @@ class State(ABC):
         temp_state.finalize()
 
     @abstractmethod
-    def initialize(self):
+    def initialize(self) -> None:
         pass
 
     @abstractmethod
-    def finalize(self):
+    def finalize(self) -> None:
         pass
 
     @abstractmethod
-    def process(self):
+    def process(self) -> None:
         st.markdown(
             f"""
             <style>
@@ -36,16 +37,16 @@ class State(ABC):
         )
 
 class SessionContext:
-    def _set(self, key, value):
+    def _set(self, key: str, value: Any) -> None:
         st.session_state[key] = value
                 
-    def _get(self, key):
+    def _get(self, key: str) -> Any:
         if key in st.session_state:
             return st.session_state[key]
         else:
             return None
         
-    def _get_default_zero(self, key):
+    def _get_default_zero(self, key: str) -> int:
         if key in st.session_state:
             return st.session_state[key]
         else:
@@ -67,3 +68,11 @@ class SessionContext:
     @color_name_index.setter
     def color_name_index(self, color_name_index: int) -> None:
         self._set('color_name_index', color_name_index)
+
+    @property
+    def publication_name(self) -> str:
+        return self._get('publication_name')
+    
+    @publication_name.setter
+    def publication_name(self, publication_name: str) -> None:
+        self._set('publication_name', publication_name)

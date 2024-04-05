@@ -1,71 +1,65 @@
-import typing
-import datetime
-import csv
-import pandas
+import requests
+import re
+import bs4
+import publication
 
-class Book:
-    list_separator = '&&'
-    
-    def __init__(self, title: str, release: str, authors: typing.List[str], publishers: typing.List[str], url: str):
-        self.contents = {'title': title, 'release': release, 'authors': authors, 'publishers': publishers}
-        self.contents['created'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
-        self.url = url
-    
-    def __str__(self):
-        return f"title: {self.contents['title']}\nrelease: {self.contents['release']}\nauthors: {Book.list_separator.join(self.contents['authors'])}\npublishers: {Book.list_separator.join(self.contents['publishers'])}\nurl: {self.url}\n"
+publishers = {
+    "인사이트": "10799",
+    "에이콘": "7509",
+    "한빛미디어": "6555",
+    "위키북스": "20415",
+    "제이펍": "33202",
+    "길벗": "663",
+    "책만": "286290",
+    "지&선": "22111",
+    "디지털북스": "7635",    
+    "미래의창": "8609",
+    "비제이퍼블릭": "39721",
+    # "이레미디어": "13913",
+    "정보문화사": "4755",
+    "책읽는수요일": "58631",
+    "프로텍미디어": "173386",
+    "이지스퍼블리싱": "48022",
+    # "영진닷컴": "3853",
+    "프리렉": "8202",
+    "생능북스": "436531",
+    "애드앤미디어": "335898",
+    # "커뮤니케이션북스": "5433",
+}
 
-def get_latest_book_release(books: typing.List[Book]):
-    return max(book.contents['release'] for book in books)
-
-def sort_books(books: typing.List[Book]):
-    return sorted(books, key=lambda book: (book.contents['publishers'], book.contents['release']))
-
-def merge_books(books_a: typing.List[Book], books_b: typing.List[Book]):
-    return sort_books({book.contents['title']: book for book in (books_a + books_b)}.values())
-
-def remove_books(books_a: typing.List[Book], titles_to_be_removed: str):
-    return sort_books([book for book in books_a if book.contents['title'] not in titles_to_be_removed])
-
-def create_books_df(books):
-    return pandas.DataFrame([{
-            'select': False,
-            'number': str(i + 1),
-            'title': book.contents['title'],
-            'release': book.contents['release'],
-            'publishers': ', '.join(book.contents['publishers']),
-            'url': book.url,
-            'authors': ', '.join(book.contents['authors']),
-        } for i, book in enumerate(books)])
-
-def write_books_to_csv_file(books, csv_file_path):
-    with open(csv_file_path, mode='w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerow(['title', 'release', 'authors', 'publishers', 'url'])
-        for book in books:
-            writer.writerow([book.contents['title'], book.contents['release'], Book.list_separator.join(book.contents['authors']), Book.list_separator.join(book.contents['publishers']), book.url])
-            
-def read_books_from_csv_file(csv_file_path):
+def search_books(since_year_month: str) -> list[publication.Publication]:
     books = []
-    with open(csv_file_path, mode='r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        next(reader)
-        for row in reader:
-            title = row[0]
-            release = row[1]
-            authors = row[2].split(Book.list_separator)
-            publishers = row[3].split(Book.list_separator)
-            url = row[4]
-            books.append(Book(title, release, authors, publishers, url))
+    for publisher_name, publisher_id in publishers.items():
+        url = 'https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&KeyRecentPublish=0&PublisherSearch=%40' + publisher_id + '&OutStock=0&ViewType=Detail&SortOrder=5&CustReviewCount=0&CustReviewRank=0&KeyWord=&CategorySearch=&chkKeyTitle=&chkKeyAuthor=&chkKeyPublisher=&chkKeyISBN=&chkKeyTag=&chkKeyTOC=&chkKeySubject=&ViewRowCount=50&SuggestKeyWord=&page=1'
+        response = requests.get(url, verify=False)
+        soup = bs4.BeautifulSoup(response.text, 'html.parser')
+        for book_box_element in soup.find('div', id='Search3_Result').find_all('div', class_='ss_book_box'):
+            book_element = book_box_element.find('div', class_='ss_book_list')
+            title_element = book_element.find('a', class_='bo3')
+
+            title = title_element.text
+            url = title_element['href']
+
+            for li in book_element.find_all('li'):
+                if '(지은이)' in li.text:
+                    authors = li.text.split('(지은이)')[0].split(',')
+                    authors = [author.strip() for author in authors]
+                    release = re.search(r'(\d{4})년 (\d{1,2})월', li.text)
+                    year = f'{release.group(1)}'
+                    month = f'{release.group(2).zfill(2)}'
+                    if year + month >= since_year_month:
+                        release = f'{year}.{month}'
+                        books.append(publication.Publication(title, '', release, authors, [publisher_name], url))
     return books
 
-def read_template_book_md_file(template_md_file_path):
+def read_template_book_md_file(template_md_file_path: str) -> str:
     with open(template_md_file_path, 'r', encoding='utf-8') as file:
         template_md = file.readlines()
     return template_md
 
-def write_book_to_book_md_file(template_md, book, md_file_path):
+def write_book_to_book_md_file(template_md: str, book: publication.Publication, md_file_path: str) -> None:
     for i, line in enumerate(template_md):
-        for k, v in book.contents.items():
+        for k, v in book.__dict__.items():
             if line.startswith(f'{k}:'):
                 if isinstance(v, list):
                     content_string = ''
@@ -80,11 +74,11 @@ def write_book_to_book_md_file(template_md, book, md_file_path):
             template_md[i] = '# references\n' + '- ' + book.url
     with open(md_file_path, 'w', encoding='utf-8') as file:
         file.writelines(template_md)
-
-def fix_title(title):
+        
+def fix_title(title: str) -> str:
     return title
 
-def write_books_to_md_file(template_md, books, md_dir):
+def write_books_to_md_file(template_md: str, books: list[publication.Publication], md_dir: str):
     for book in books:
-        md_file_path = md_dir + '/' + fix_title(book.contents['title'])
+        md_file_path = md_dir + '/' + fix_title(book.title)
         write_book_to_book_md_file(template_md, book, md_file_path)
