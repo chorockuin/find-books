@@ -68,11 +68,3 @@ class SessionContext:
     @color_name_index.setter
     def color_name_index(self, color_name_index: int) -> None:
         self._set('color_name_index', color_name_index)
-
-    @property
-    def publication_name(self) -> str:
-        return self._get('publication_name')
-    
-    @publication_name.setter
-    def publication_name(self, publication_name: str) -> None:
-        self._set('publication_name', publication_name)
