@@ -21,5 +21,18 @@ def open_chrome():
 def close_chrome(chrome):
     chrome.quit()
 
-def wait(chrome, xpath):
+def get(chrome, url):
+    chrome.get(url)
+    wait_for_page_load_complete(chrome)
+    
+def wait_for_page_load_complete(chrome):
+    WebDriverWait(chrome, 10).until(lambda x: x.execute_script('return document.readyState') == 'complete')
+    
+def wait_by_xpath(chrome, xpath):
     WebDriverWait(chrome, 10).until(EC.presence_of_element_located((By.XPATH, xpath)))
+    
+def wait_by_id(chrome, id):
+    WebDriverWait(chrome, 10).until(EC.presence_of_element_located((By.ID, id)))
+    
+def wait_by_class_name(chrome, class_name):
+    WebDriverWait(chrome, 20).until(EC.presence_of_element_located((By.CLASS_NAME, class_name)))

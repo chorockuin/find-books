@@ -17,7 +17,7 @@ def get_dates_since(since_year, since_month, since_day):
     return dates
 
 def get_arxiv_paper(chrome, url):
-    chrome.get(url)
+    webdriver.get(chrome, url)
     soup = bs4.BeautifulSoup(chrome.page_source, 'html.parser')
     
     translater = googletrans.Translator()
@@ -25,7 +25,7 @@ def get_arxiv_paper(chrome, url):
     title = soup.find('h1', class_='title mathjax')
     title.span.decompose()
     title = title.get_text(strip=True)
-    title = translater.translate(title, dest='ko').text
+    # title = translater.translate(title, dest='ko').text
     
     abstract = soup.find('blockquote', class_='abstract mathjax')
     abstract.span.decompose()
@@ -37,33 +37,63 @@ def get_arxiv_paper(chrome, url):
 
     release = soup.find('div', class_='dateline')
     release = release.get_text(strip=True)
-    release = release.strip("[]").replace("Submitted on ", "")
-    release = datetime.datetime.strptime(release, "%d %b %Y").strftime("%Y.%m.%d")
+    release = release.strip('[]')
+    release = release.split(' ')
+    release = release[2] + ' ' + release[3] + ' ' + release[4]
+    release = datetime.datetime.strptime(release, '%d %b %Y').strftime('%Y.%m.%d')
         
     publishers = ['arxiv']
     return publication.Publication(title, abstract, release, authors, publishers, url)
     
-def search_huggingface_blog(chrome, since_year: str, since_month: str, since_day: str):
+def get_arxiv_paper_url_from_huggingface_paper_page(chrome, huggingface_paper_page_url):
+    webdriver.get(chrome, huggingface_paper_page_url)
+    arxiv_paper_url = bs4.BeautifulSoup(chrome.page_source, 'html.parser').find('a', class_='btn inline-flex h-9 items-center')['href']
+    return arxiv_paper_url
+
+def get_huggingface_paper_page_urls(chrome, since_date):
+    webdriver.get(chrome, 'https://huggingface.co/papers?date=' + since_date)
+    webdriver.wait_by_xpath(chrome, '/html/body/div/main/div[2]/section/div[2]')
+    a_tags = bs4.BeautifulSoup(chrome.page_source, 'html.parser').find_all('a')
+    hrefs = [a_tag.get('href') for a_tag in a_tags if a_tag.get('href') is not None]
+    paper_page_hrefs = set(filter(re.compile(r'/papers/\d{4}\.\d{5}$').match, hrefs))
+    return ['https://huggingface.co' + paper_page_href for paper_page_href in paper_page_hrefs]
+
+def search_papers_from_huggingface(chrome, since_date: str):
+    return [get_arxiv_paper(chrome, get_arxiv_paper_url_from_huggingface_paper_page(chrome, hugginface_paper_page_url)) for hugginface_paper_page_url in get_huggingface_paper_page_urls(chrome, since_date)]
+
+def get_arxiv_paper_urls_from_top_llm_papers_of_the_week_page(chrome, page_url):
+    webdriver.get(chrome, page_url)
+    a_tags = bs4.BeautifulSoup(chrome.page_source, 'html.parser').find_all('a')
+    hrefs = [a_tag.get('href') for a_tag in a_tags if a_tag.get('href') is not None]
+    hrefs = [href for href in hrefs if 'arxiv.org' in href]
+    arxiv_paper_urls = ['https://arxiv.org/abs/' + re.search(r'\d{4}\.\d{5}', href).group() for href in hrefs]
+    return arxiv_paper_urls
+
+def search_papers_from_top_llm_papers_of_the_week(chrome, since_date):
+    def is_since_date(since_date, page_info):
+        date = page_info['date'].split(' ')
+        date = datetime.datetime.strptime(date[6].replace(',', '') + ' ' + date[5] + ' ' + date[7], '%d %b %Y').strftime('%Y-%m-%d')
+        if since_date <= date:
+            return True
+        return False
     papers = []
-    dates = get_dates_since(since_year, since_month, since_day)
-    for date in dates:
-        url = 'https://huggingface.co/papers?date=' + date
-        chrome.get(url)
-        a_tags = bs4.BeautifulSoup(chrome.page_source, 'html.parser').find_all('a')
-        hrefs = [a_tag.get('href') for a_tag in a_tags if a_tag.get('href') is not None]
-        paper_href_pattern = re.compile(r'/papers/\d{4}\.\d{5}$')
-        paper_hrefs = set(filter(paper_href_pattern.match, hrefs))
-        for paper_href in paper_hrefs:
-            paper_url = 'https://huggingface.co' + paper_href
-            chrome.get(paper_url)
-            arxiv_url = bs4.BeautifulSoup(chrome.page_source, 'html.parser').find('a', class_="btn inline-flex h-9 items-center")['href']
-            papers.append(get_arxiv_paper(chrome, arxiv_url))
+    webdriver.get(chrome, 'https://corca.substack.com/archive?sort=new')
+    a_tags = bs4.BeautifulSoup(chrome.page_source, 'html.parser').find_all('a')
+    page_infos = [{'date': a_tag.get_text(strip=True), 'href': a_tag.get('href')} for a_tag in a_tags if a_tag.get('href') is not None]
+    page_infos = [page_info for page_info in page_infos if 'Vol.' in page_info['date']]
+    page_infos = [page_info for page_info in page_infos if is_since_date(since_date, page_info)]
+    for page_info in page_infos:
+        arxiv_paper_urls = get_arxiv_paper_urls_from_top_llm_papers_of_the_week_page(chrome, page_info['href'])
+        for arxiv_paper_url in arxiv_paper_urls:
+            papers.append(get_arxiv_paper(chrome, arxiv_paper_url))
     return papers
 
 def search_papers(since_year: str, since_month: str, since_day: str) -> list[publication.Publication]:
     papers = []
     chrome = webdriver.open_chrome()
-    huggingface_papers = search_huggingface_blog(chrome, since_year, since_month, since_day)
-    papers += huggingface_papers
-    webdriver.close_chrome(chrome)   
+    since_dates = get_dates_since(since_year, since_month, since_day)
+    for since_date in since_dates:
+        papers += search_papers_from_huggingface(chrome, since_date)
+        papers += search_papers_from_top_llm_papers_of_the_week(chrome, since_date)
+    webdriver.close_chrome(chrome)
     return papers
