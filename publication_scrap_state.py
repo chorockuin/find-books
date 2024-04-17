@@ -10,12 +10,12 @@ import pandas as pd
 import streamlit as st
 
 class PublicationScrapState(state.State):        
-    def scrap_publications(self, pub_name: str, year: str, month: str, day: str) -> pd.DataFrame:
+    def scrap_publications(self, pubs_file_path: str, pub_name: str, year: str, month: str, day: str) -> pd.DataFrame:
         search_api = {
             'book': book.search_books,
             'paper': paper.search_papers
         }
-        pubs = search_api[pub_name](year, month, day)
+        pubs = search_api[pub_name](pubs_file_path, year, month, day)
         return pubs
 
     def initialize(self):
@@ -57,7 +57,7 @@ class PublicationScrapState(state.State):
             day = str(selected_day).zfill(2)
 
         if st.button(f"{year}년 {month}월 {day}일 이후에 나온거 다긁어"):
-            scraped_pubs = self.scrap_publications(selected_publication_name, year, month, day)
-            merged_pubs = publication.merge_publications(pubs, scraped_pubs)
-            publication.write_publications_to_csv_file(merged_pubs, pubs_file_path)
+            scraped_pubs = self.scrap_publications(pubs_file_path, selected_publication_name, year, month, day)
+            # merged_pubs = publication.merge_publications(pubs, scraped_pubs)
+            # publication.write_publications_to_csv_file(merged_pubs, pubs_file_path)
             st.experimental_rerun()

@@ -27,7 +27,7 @@ publishers = {
     # "커뮤니케이션북스": "5433",
 }
 
-def search_books(since_year: str, since_month: str, since_day: str) -> list[publication.Publication]:
+def search_books(books_file_path: str, since_year: str, since_month: str, since_day: str) -> list[publication.Publication]:
     books = []
     for publisher_name, publisher_id in publishers.items():
         url = 'https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&KeyRecentPublish=0&PublisherSearch=%40' + publisher_id + '&OutStock=0&ViewType=Detail&SortOrder=5&CustReviewCount=0&CustReviewRank=0&KeyWord=&CategorySearch=&chkKeyTitle=&chkKeyAuthor=&chkKeyPublisher=&chkKeyISBN=&chkKeyTag=&chkKeyTOC=&chkKeySubject=&ViewRowCount=50&SuggestKeyWord=&page=1'
@@ -49,7 +49,10 @@ def search_books(since_year: str, since_month: str, since_day: str) -> list[publ
                     month = f'{release.group(2).zfill(2)}'
                     if year + month >= since_year + since_month:
                         release = f"{year}.{month}.01"
-                        books.append(publication.Publication(title, '', release, authors, [publisher_name], url))
+                        old_books = publication.read_publications_from_csv_file(books_file_path)
+                        new_book = publication.Publication(title, '', release, authors, [publisher_name], url)
+                        publication.write_publications_to_csv_file(publication.merge_publications(old_books, [new_book]), books_file_path)
+                        books.append(new_book)
     return books
 
 def read_template_book_md_file(template_md_file_path: str) -> str:
